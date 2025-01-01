@@ -1,21 +1,31 @@
 use std::{io::Write, path::PathBuf};
 
 fn main() {
-    let config = std::fs::read_to_string("config.cfg").unwrap();
-    let lines = config.lines()
-        .map(|line| line.split_once(":").unwrap().1.trim())
-        .collect::<Vec<_>>();
+    let config = match std::fs::read_to_string("config.cfg") {
+        Ok(config) => config,
+        Err(_) => {
+            wait_for_enter("Die config.cfg Datei wurde nicht gefunden.");
+            return;
+        },
+    }; 
 
-    let src = lines[0];
+    let mut lines = config.lines()
+        .flat_map(|line| line.split_once(":"))
+        .map(|(_, value)| value.trim());
+
+    let (src, dst) = match (lines.next(), lines.next()) {
+        (Some(src), Some(dst)) => (src, dst),
+        _ => {
+            wait_for_enter("Die config.cfg Datei ist fehlerhaft.");
+            return;
+        }
+    };
 
     if !std::fs::metadata(src).is_ok() {
-        println!("Die SD-Karte wurde nicht gefunden.");
-        println!("Drücke ENTER um das Programm zu beenden.");
-        std::io::stdin().read_line(&mut String::new()).unwrap();
+        wait_for_enter("Die SD-Kartre wurde nicht gefunden.");
         return;
     }
 
-    let dst = lines[1];
     let dst_name = get_dst_name();
     
     move_images(src, &dst, &dst_name);
@@ -25,9 +35,7 @@ fn move_images(src: &str, dst: &str, dst_name: &str) {
     let full_dst = format!("{}\\{}", dst, dst_name);
     println!("Kopiere Dateien von {} nach {}.", src, full_dst);
     
-    if !std::fs::metadata(&full_dst).is_ok() {
-        std::fs::create_dir(&full_dst).unwrap();
-    }
+    std::fs::create_dir(&full_dst).unwrap_or(());
 
     let total_num_files = get_total_num_files(src);
     let progress_bar = indicatif::ProgressBar::new(total_num_files as u64);
@@ -35,29 +43,29 @@ fn move_images(src: &str, dst: &str, dst_name: &str) {
     let full_dst = format!("{}\\{}", dst, dst_name);
     let folders_at_src: Vec<_> = get_subdirectories(src).collect();
 
-    std::thread::scope(|s| {
-        for folder in folders_at_src {
-            s.spawn(|| {
-                let folder = folder;  
-                let files_at_folder = std::fs::read_dir(&folder).unwrap();
-                for file in files_at_folder.filter_map(|entry| entry.ok()) {
-                    let file_name = file.file_name();
-                    let (file_name,file_end) = file_name.to_str().unwrap().split_once('.').unwrap();
-                    let full_path = format!("{}\\{}", &full_dst, file_end);
-                    let full_file_name = format!("{}\\{}-{}.{}", &full_path, &file_name, folder.file_name().unwrap().to_str().unwrap(), file_end);
-                    if !std::fs::metadata(&full_path).is_ok() {
-                        std::fs::create_dir(&full_path).unwrap();
-                    }
-                    std::fs::copy(file.path(), &full_file_name).unwrap();
-                    progress_bar.inc(1);
-                }
-            });
+    for folder in folders_at_src {
+        let folder = folder;  
+        let files_at_folder = std::fs::read_dir(&folder).unwrap();
+        for file in files_at_folder.filter_map(|entry| entry.ok()) {
+            let file_name = file.file_name();
+            let (file_name,file_end) = file_name.to_str().unwrap().split_once('.').unwrap();
+            let full_path = format!("{}\\{}", &full_dst, file_end);
+            let folder_name = folder.file_name().unwrap().to_str().unwrap();
+            let full_file_name = format!("{}\\{}-{}.{}", full_path, file_name, folder_name, file_end);
+            std::fs::create_dir(&full_path).unwrap_or(());
+            std::fs::copy(file.path(), full_file_name).unwrap();
+            progress_bar.inc(1);
         }
-    });
+    }
 
     progress_bar.finish_and_clear();
-    println!("Kopieren abgeschlossen.");
-    println!("Drücke ENTER um das Programm zu beenden.");
+    wait_for_enter("Alle Dateien wurden kopiert.");
+}
+
+fn wait_for_enter(msg: &str) {
+    println!("{}", msg);
+    print!("Drücke ENTER um das Programm zu beenden.");
+    std::io::stdout().flush().unwrap();
     std::io::stdin().read_line(&mut String::new()).unwrap();
 }
 
