@@ -7,6 +7,14 @@ fn main() {
         .collect::<Vec<_>>();
 
     let src = lines[0];
+
+    if !std::fs::metadata(src).is_ok() {
+        println!("Die SD-Karte wurde nicht gefunden.");
+        println!("Drücke ENTER um das Programm zu beenden.");
+        std::io::stdin().read_line(&mut String::new()).unwrap();
+        return;
+    }
+
     let dst = lines[1];
     let dst_name = get_dst_name();
     
@@ -14,7 +22,7 @@ fn main() {
 }
 
 fn move_images(src: &str, dst: &str, dst_name: &str) {
-    let full_dst = format!("{}/{}", dst, dst_name);
+    let full_dst = format!("{}\\{}", dst, dst_name);
     println!("Kopiere Dateien von {} nach {}.", src, full_dst);
     
     if !std::fs::metadata(&full_dst).is_ok() {
@@ -24,7 +32,7 @@ fn move_images(src: &str, dst: &str, dst_name: &str) {
     let total_num_files = get_total_num_files(src);
     let progress_bar = indicatif::ProgressBar::new(total_num_files as u64);
     
-    let full_dst = format!("{}/{}", dst, dst_name);
+    let full_dst = format!("{}\\{}", dst, dst_name);
     let folders_at_src: Vec<_> = get_subdirectories(src).collect();
 
     std::thread::scope(|s| {
@@ -34,11 +42,9 @@ fn move_images(src: &str, dst: &str, dst_name: &str) {
                 let files_at_folder = std::fs::read_dir(&folder).unwrap();
                 for file in files_at_folder.filter_map(|entry| entry.ok()) {
                     let file_name = file.file_name();
-                    let file_name = file_name.to_str().unwrap();
-                    let file_end = file_name.split('.').last().unwrap();
-                    let file_name = file_name.split('.').next().unwrap();
-                    let full_path = format!("{}/{}", &full_dst, file_end);
-                    let full_file_name = format!("{}/{}-{}.{}", &full_path, &file_name, folder.file_name().unwrap().to_str().unwrap(), file_end);
+                    let (file_name,file_end) = file_name.to_str().unwrap().split_once('.').unwrap();
+                    let full_path = format!("{}\\{}", &full_dst, file_end);
+                    let full_file_name = format!("{}\\{}-{}.{}", &full_path, &file_name, folder.file_name().unwrap().to_str().unwrap(), file_end);
                     if !std::fs::metadata(&full_path).is_ok() {
                         std::fs::create_dir(&full_path).unwrap();
                     }
