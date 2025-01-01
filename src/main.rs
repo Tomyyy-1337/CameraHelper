@@ -1,4 +1,5 @@
 use std::{io::Write, path::PathBuf};
+use indicatif::ProgressBar;
 
 fn main() {
     let config = match std::fs::read_to_string("config.cfg") {
@@ -38,7 +39,7 @@ fn move_images(src: &str, dst: &str, dst_name: &str) {
     std::fs::create_dir(&full_dst).unwrap_or(());
 
     let total_num_files = get_total_num_files(src);
-    let progress_bar = indicatif::ProgressBar::new(total_num_files as u64);
+    let progress_bar = ProgressBar::new(total_num_files as u64);
     
     let full_dst = format!("{}\\{}", dst, dst_name);
     let folders_at_src: Vec<_> = get_subdirectories(src).collect();
