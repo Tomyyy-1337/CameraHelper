@@ -22,7 +22,7 @@ fn main() {
     };
 
     if !std::fs::metadata(src).is_ok() {
-        wait_for_enter("Die SD-Kartre wurde nicht gefunden.");
+        wait_for_enter("Die SD-Karte wurde nicht gefunden.");
         return;
     }
 
